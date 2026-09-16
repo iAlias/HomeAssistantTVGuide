@@ -9,7 +9,7 @@ sensors:
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import timedelta
 import logging
 from typing import Dict, Tuple
 
@@ -23,10 +23,20 @@ from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_NAME = "Guida TV"
+
+# "Ora in onda" needs to actually change during the day; a plain per-calendar-day
+# cache never refreshes again after the first poll. Sorrisi.com does not publish
+# a change-frequency guarantee, so 10 minutes is a compromise between freshness
+# and not hammering their servers.
+REFRESH_INTERVAL = timedelta(minutes=10)
 
 URL_NOW = "https://www.sorrisi.com/guidatv/ora-in-tv/"
 URL_PRIME = "https://www.sorrisi.com/guidatv/stasera-in-tv/"
@@ -62,10 +72,12 @@ async def async_setup_platform(
     """Set up the sensors."""
     name = config.get(CONF_NAME)
     session = async_get_clientsession(hass)
+    coordinator = SorrisiCoordinator(hass, session)
+    await coordinator.async_refresh()
     async_add_entities([
-        SorrisiNowSensor(name, session),
-        SorrisiPrimeSensor(name, session),
-    ], True)
+        SorrisiNowSensor(name, coordinator),
+        SorrisiPrimeSensor(name, coordinator),
+    ])
 
 
 # -----------------------------------------------------------------------------
@@ -123,27 +135,39 @@ async def get_schedules(session: aiohttp.ClientSession) -> Tuple[Dict[str, str],
 
 
 # -----------------------------------------------------------------------------
+# Coordinator
+# -----------------------------------------------------------------------------
+
+class SorrisiCoordinator(DataUpdateCoordinator[Tuple[Dict[str, str], Dict[str, str]]]):
+    """Refreshes both schedules together on a fixed interval.
+
+    A single coordinator shared by both sensors, instead of a per-sensor cache,
+    is also what keeps this to 2 downloads per refresh rather than 4.
+    """
+
+    def __init__(self, hass: HomeAssistant, session: aiohttp.ClientSession) -> None:
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="TV Guide Multi-Source",
+            update_interval=REFRESH_INTERVAL,
+        )
+        self._session = session
+
+    async def _async_update_data(self) -> Tuple[Dict[str, str], Dict[str, str]]:
+        return await get_schedules(self._session)
+
+
+# -----------------------------------------------------------------------------
 # Sensor classes
 # -----------------------------------------------------------------------------
 
-class _SorrisiBase(SensorEntity):
+class _SorrisiBase(CoordinatorEntity[SorrisiCoordinator], SensorEntity):
     """Common functionality for both sensors."""
 
-    _attr_should_poll = True
-
-    def __init__(self, base_name: str, session: aiohttp.ClientSession) -> None:
-        self._session = session
-        self._cache_date: str | None = None
-        self._cache_now: Dict[str, str] = {}
-        self._cache_prime: Dict[str, str] = {}
+    def __init__(self, base_name: str, coordinator: SorrisiCoordinator) -> None:
+        super().__init__(coordinator)
         self._base_name = base_name
-
-    async def _ensure_cache(self) -> None:
-        today = date.today().isoformat()
-        if self._cache_date == today:
-            return
-        self._cache_now, self._cache_prime = await get_schedules(self._session)
-        self._cache_date = today
 
 
 class SorrisiNowSensor(_SorrisiBase):
@@ -151,16 +175,21 @@ class SorrisiNowSensor(_SorrisiBase):
 
     _attr_icon = "mdi:television-play"
 
-    def __init__(self, base_name: str, session: aiohttp.ClientSession) -> None:
-        super().__init__(base_name, session)
+    def __init__(self, base_name: str, coordinator: SorrisiCoordinator) -> None:
+        super().__init__(base_name, coordinator)
         self._attr_name = f"{base_name} - Ora in onda"
         self._attr_unique_id = "tvguide_sorrisi_now"
 
-    async def async_update(self) -> None:
-        await self._ensure_cache()
-        self._attr_native_value = next(iter(self._cache_now.values()), "Nessun dato")
-        self._attr_extra_state_attributes = {
-            "programmi_correnti": self._cache_now,
+    @property
+    def native_value(self) -> str:
+        cache_now, _ = self.coordinator.data
+        return next(iter(cache_now.values()), "Nessun dato")
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, object]:
+        cache_now, _ = self.coordinator.data
+        return {
+            "programmi_correnti": cache_now,
             "fonte": "sorrisi.com",
         }
 
@@ -170,15 +199,20 @@ class SorrisiPrimeSensor(_SorrisiBase):
 
     _attr_icon = "mdi:movie-open"
 
-    def __init__(self, base_name: str, session: aiohttp.ClientSession) -> None:
-        super().__init__(base_name, session)
+    def __init__(self, base_name: str, coordinator: SorrisiCoordinator) -> None:
+        super().__init__(base_name, coordinator)
         self._attr_name = f"{base_name} - Prima serata"
         self._attr_unique_id = "tvguide_sorrisi_prime"
 
-    async def async_update(self) -> None:
-        await self._ensure_cache()
-        self._attr_native_value = next(iter(self._cache_prime.values()), "Nessun dato")
-        self._attr_extra_state_attributes = {
-            "prima_serata": self._cache_prime,
+    @property
+    def native_value(self) -> str:
+        _, cache_prime = self.coordinator.data
+        return next(iter(cache_prime.values()), "Nessun dato")
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, object]:
+        _, cache_prime = self.coordinator.data
+        return {
+            "prima_serata": cache_prime,
             "fonte": "sorrisi.com",
         }
