@@ -12,5 +12,16 @@
     "abort": {
       "already_configured": "L'integrazione è già configurata."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Programmi preferiti",
+        "description": "Titoli (anche parziali) separati da virgola: per ciascuno viene creato un sensore binario che si accende quando quel programma è in onda ora, su qualsiasi canale.",
+        "data": {
+          "preferiti": "Titoli preferiti"
+        }
+      }
+    }
   }
 }

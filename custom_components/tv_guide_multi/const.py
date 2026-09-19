@@ -2,3 +2,4 @@
 
 DOMAIN = "tv_guide_multi"
 DEFAULT_NAME = "Guida TV"
+CONF_FAVORITES = "preferiti"

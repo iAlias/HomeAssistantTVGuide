@@ -18,7 +18,15 @@ secondo la numerazione italiana del digitale terrestre.
 | `<nome> - Prima serata` | il programma serale del primo canale | `prima_serata`: dizionario canale → programma |
 
 Il valore dello stato è una comodità per le automazioni; **il contenuto vero sta negli attributi**,
-dove trovi tutti i canali in una volta. È da lì che la card costruisce la guida.
+dove trovi tutti i canali in una volta, con orario, genere, locandina e descrizione per ogni
+programma (quando sorrisi.com li pubblica). È da lì che la card costruisce la guida.
+
+### Programmi preferiti
+
+Da **Impostazioni → Dispositivi e servizi → TV Guide Multi-Source → Configura** puoi indicare uno
+o più titoli (anche parziali, separati da virgola: es. `Report, Propaganda Live`). Per ciascuno
+viene creato un `binary_sensor` che si accende quando quel programma è in onda ora su un
+qualsiasi canale — comodo per un'automazione che ti avvisa quando inizia una serie che segui.
 
 Le dipendenze (`aiohttp`, `beautifulsoup4`, `async_timeout`) le installa Home Assistant da solo:
 non devi toccare niente.

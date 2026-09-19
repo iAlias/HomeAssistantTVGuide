@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+from homeassistant.core import callback
 
-from .const import DEFAULT_NAME, DOMAIN
+from .const import CONF_FAVORITES, DEFAULT_NAME, DOMAIN
 
 
 class TvGuideMultiConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -25,3 +26,26 @@ class TvGuideMultiConfigFlow(ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema({vol.Optional("name", default=DEFAULT_NAME): str})
         return self.async_show_form(step_id="user", data_schema=schema)
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> "TvGuideMultiOptionsFlow":
+        return TvGuideMultiOptionsFlow(config_entry)
+
+
+class TvGuideMultiOptionsFlow(OptionsFlow):
+    """Lets the user configure favorite programs after setup."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        # Explicit assignment (rather than relying on the base class) keeps
+        # this working on HA versions older than the 2024.11 auto-injection,
+        # matching the 2024.1.0 minimum declared in hacs.json.
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input: dict | None = None):
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        current = self.config_entry.options.get(CONF_FAVORITES, "")
+        schema = vol.Schema({vol.Optional(CONF_FAVORITES, default=current): str})
+        return self.async_show_form(step_id="init", data_schema=schema)
