@@ -1,12 +1,13 @@
-"""Make ``coordinator.py`` importable without a Home Assistant installation.
+"""Make the integration's pure-logic modules importable without a full Home
+Assistant installation, using real package-relative imports.
 
-``coordinator.py`` imports ``homeassistant.core`` and
-``homeassistant.helpers.update_coordinator`` purely for typing/base-class
-purposes; none of that machinery is exercised by the pure-logic tests here
-(``_parse_programs`` and friends). Rather than pull in the full
-``homeassistant`` package as a test dependency, this installs minimal stand-in
-modules in ``sys.modules`` before the first import, mirroring the approach
-used in the ``allerte-italia`` project's ``conftest.py``.
+A synthetic ``custom_components.tv_guide_multi`` package is registered
+directly in ``sys.modules`` (with ``__path__`` pointing at the real component
+directory) so that ``coordinator.py``'s ``from .sources import ...`` resolves
+normally, without ever executing the real ``__init__.py`` (which pulls in the
+rest of ``homeassistant``). Only the small pieces of ``homeassistant`` that
+``coordinator.py`` needs for typing/base-class purposes are stubbed. Mirrors
+the approach used in the ``allerte-italia`` project's ``conftest.py``.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import types
 from pathlib import Path
 
 COMPONENT_DIR = Path(__file__).parent.parent / "custom_components" / "tv_guide_multi"
-sys.path.insert(0, str(COMPONENT_DIR))
+PACKAGE = "custom_components.tv_guide_multi"
 
 
 class _GenericStub:
@@ -56,4 +57,18 @@ def _install_stub_homeassistant() -> None:
     sys.modules.update(modules)
 
 
+def _register_component_package() -> None:
+    if PACKAGE in sys.modules:
+        return
+
+    root = types.ModuleType("custom_components")
+    root.__path__ = []
+    sys.modules.setdefault("custom_components", root)
+
+    package = types.ModuleType(PACKAGE)
+    package.__path__ = [str(COMPONENT_DIR)]
+    sys.modules[PACKAGE] = package
+
+
 _install_stub_homeassistant()
+_register_component_package()

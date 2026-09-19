@@ -1,4 +1,4 @@
-"""Tests for ``coordinator._parse_programs`` against real sorrisi.com markup.
+"""Tests for ``sources._parse_programs`` against real sorrisi.com markup.
 
 The fixtures under ``fixtures/`` are full pages saved from sorrisi.com. This
 is the most fragile part of the integration: if sorrisi.com changes its
@@ -8,7 +8,7 @@ markup, these tests catch it before the sensors silently start returning
 
 from pathlib import Path
 
-from coordinator import CHANNEL_ORDER, SKIP_CHANNELS, _parse_programs
+from custom_components.tv_guide_multi.sources import CHANNEL_ORDER, SKIP_CHANNELS, _parse_programs
 
 FIXTURES = Path(__file__).parent / "fixtures"
 ORA_IN_ONDA = (FIXTURES / "ora_in_onda.html").read_text(encoding="utf-8")

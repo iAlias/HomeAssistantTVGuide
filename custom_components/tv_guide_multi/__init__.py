@@ -8,6 +8,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
 from .coordinator import SorrisiCoordinator
+from .sources import SorrisiSource
 
 PLATFORMS = ["sensor", "binary_sensor"]
 
@@ -15,7 +16,8 @@ PLATFORMS = ["sensor", "binary_sensor"]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up TV Guide Multi-Source from a config entry."""
     session = async_get_clientsession(hass)
-    coordinator = SorrisiCoordinator(hass, session)
+    source = SorrisiSource(session)
+    coordinator = SorrisiCoordinator(hass, source)
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator

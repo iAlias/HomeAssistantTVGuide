@@ -1,6 +1,6 @@
 """Tests for the pure favorite-matching logic behind binary_sensor.py."""
 
-from favorites import matching_channels, parse_favorites
+from custom_components.tv_guide_multi.favorites import matching_channels, parse_favorites
 
 
 def test_parse_favorites_splits_and_trims():

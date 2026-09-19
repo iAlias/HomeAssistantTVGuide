@@ -103,9 +103,16 @@ style: |
 ## Cose da sapere
 
 - **I dati arrivano leggendo un sito, non un'API.** Non esiste un palinsesto pubblico aperto per la
-  TV italiana, quindi le pagine di sorrisi.com vengono lette e interpretate. Funziona bene, ma se
-  loro cambiano l'impaginazione la lettura va aggiornata: se un giorno i sensori diventano
-  `Nessun dato`, è quasi sempre questo — [apri una segnalazione](https://github.com/iAlias/HomeAssistantTVGuide/issues).
+  TV italiana, quindi le pagine di sorrisi.com vengono lette e interpretate. Se sorrisi.com cambia
+  l'impaginazione, il coordinator continua a servire l'ultimo palinsesto letto con successo invece
+  di far sparire subito i dati (i sensori non tornano a `Nessun dato` al primo giro andato a vuoto);
+  se però il markup resta rotto — [apri una segnalazione](https://github.com/iAlias/HomeAssistantTVGuide/issues).
+- **Una sola fonte, ma pronta per una seconda.** Il fetch/parsing passa da un'interfaccia
+  `ScheduleSource` (`sources.py`); oggi esiste solo `SorrisiSource`. È stata cercata una seconda
+  fonte EPG pubblica italiana da usare come fallback reale, ma i candidati trovati non erano
+  abbastanza affidabili (un mirror di terze parti non rispondeva, un altro servizio limita a 20
+  richieste/giorno con copertura Italia non confermata) — aggiungerne una richiede solo
+  un'implementazione di `ScheduleSource`, senza toccare coordinator o entità.
 - **Solo canali italiani.** L'ordinamento segue la numerazione LCN nazionale.
 - **Rispetta la fonte.** L'integrazione tiene in memoria i palinsesti invece di riscaricarli a ogni
   controllo: se ne modifichi il funzionamento, evita di trasformare il sito in un bersaglio.
