@@ -17,6 +17,10 @@ class TvGuideMultiCard extends HTMLElement {
     };
   }
 
+  _escapeAttr(str){
+    return String(str).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+  }
+
   set hass(hass){
     const c = this._cfg;
 
@@ -34,7 +38,12 @@ class TvGuideMultiCard extends HTMLElement {
         .tvg-meta{font-size:.85rem;opacity:.75}
         h3{margin:0 0 8px;font-size:1rem;font-weight:500}
         ul{list-style:none;margin:0;padding:0}
-        li{display:flex;justify-content:space-between;border-bottom:1px solid var(--divider-color);padding:2px 0}
+        li{display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--divider-color);padding:4px 0}
+        .tvg-ch{display:flex;align-items:center;gap:8px;overflow:hidden}
+        .tvg-poster{width:28px;height:28px;border-radius:4px;object-fit:cover;flex:none;background:var(--divider-color)}
+        .tvg-ch-text{display:flex;flex-direction:column;overflow:hidden}
+        .tvg-ch-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .tvg-ch-meta{font-size:.75rem;opacity:.65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
         .val{font-weight:500;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       `;
       this.card.appendChild(style);
@@ -67,12 +76,24 @@ class TvGuideMultiCard extends HTMLElement {
       ...Object.keys(nowMap), ...Object.keys(primeMap)
     ])).sort();
 
-    const section = (label,map) => {
+    const section = (label, map) => {
       let html = `<h3>${label}</h3><ul>`;
       channels.forEach(ch => {
-        const raw = map[ch] || "—";
-        const v = raw.length > 60 ? raw.slice(0,57)+"…" : raw;
-        html += `<li><span>${ch}</span><span class="val">${v}</span></li>`;
+        const info = map[ch];
+        const title = info?.titolo ?? "—";
+        const v = title.length > 60 ? title.slice(0,57)+"…" : title;
+        const orario = info?.orario_inizio && info?.orario_fine
+          ? `${info.orario_inizio}–${info.orario_fine}`
+          : (info?.orario_inizio || "");
+        const metaLine = [orario, info?.genere].filter(Boolean).join(" · ");
+        const poster = info?.locandina
+          ? `<img class="tvg-poster" src="${this._escapeAttr(info.locandina)}" alt="" loading="lazy">`
+          : "";
+        const tooltip = info?.descrizione ? ` title="${this._escapeAttr(info.descrizione)}"` : "";
+        html += `<li${tooltip}>
+          <span class="tvg-ch">${poster}<span class="tvg-ch-text"><span class="tvg-ch-name">${ch}</span>${metaLine ? `<span class="tvg-ch-meta">${metaLine}</span>` : ""}</span></span>
+          <span class="val">${v}</span>
+        </li>`;
       });
       return html + "</ul>";
     };

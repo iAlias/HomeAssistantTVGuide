@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import aiohttp
 import async_timeout
@@ -63,10 +63,49 @@ async def _fetch_page(session: aiohttp.ClientSession, url: str) -> str:
         return ""
 
 
-def _parse_programs(html: str) -> Dict[str, str]:
-    """Return a mapping {channel: title} from the provided HTML."""
+def _extract_start_time(article) -> Optional[str]:
+    time_el = article.find("time", class_="gtv-program-time")
+    return time_el.get_text(strip=True) if time_el else None
+
+
+def _extract_end_time(article) -> Optional[str]:
+    time_el = article.find("time", class_="gtv-program-time")
+    end_ts = time_el.get("data-end-ts") if time_el else None
+    if not end_ts:
+        return None
+    try:
+        return datetime.fromtimestamp(int(end_ts)).strftime("%H:%M")
+    except (TypeError, ValueError, OSError):
+        return None
+
+
+def _extract_genre(article) -> Optional[str]:
+    label = article.find("div", class_="gtv-program-label")
+    return label.get_text(strip=True) if label else None
+
+
+def _extract_image(article) -> Optional[str]:
+    img = article.select_one("figure.gtv-program-image img")
+    src = img.get("src") if img else None
+    if not src:
+        return None
+    return f"https:{src}" if src.startswith("//") else src
+
+
+def _extract_abstract(article) -> Optional[str]:
+    abstract = article.find("p", class_="gtv-program-abstract")
+    return abstract.get_text(strip=True) if abstract else None
+
+
+def _parse_programs(html: str) -> Dict[str, Dict[str, Optional[str]]]:
+    """Return a mapping {channel: program_info} from the provided HTML.
+
+    ``program_info`` always has a ``titolo`` key; ``orario_inizio``,
+    ``orario_fine``, ``genere``, ``locandina`` and ``descrizione`` are ``None``
+    when sorrisi.com does not publish them for that program.
+    """
     soup = BeautifulSoup(html, "html.parser")
-    mapping: Dict[str, str] = {}
+    mapping: Dict[str, Dict[str, Optional[str]]] = {}
 
     for header in soup.select("div.gtv-channel-header"):
         logo = header.find("a", class_="gtv-logo")
@@ -75,13 +114,23 @@ def _parse_programs(html: str) -> Dict[str, str]:
         article = header.find_next("article", class_="gtv-program-on-air") or \
             header.find_next("article", class_="gtv-program")
         title_el = article.find("h3", class_="gtv-program-title") if article else None
-        if channel and title_el:
-            key = channel.upper().replace(" ", "")
-            if key in SKIP_CHANNELS:
-                continue
-            mapping[channel.strip()] = title_el.get_text(strip=True)
+        if not (channel and title_el):
+            continue
 
-    def sort_key(item: Tuple[str, str]) -> Tuple[int, str]:
+        key = channel.upper().replace(" ", "")
+        if key in SKIP_CHANNELS:
+            continue
+
+        mapping[channel.strip()] = {
+            "titolo": title_el.get_text(strip=True),
+            "orario_inizio": _extract_start_time(article),
+            "orario_fine": _extract_end_time(article),
+            "genere": _extract_genre(article),
+            "locandina": _extract_image(article),
+            "descrizione": _extract_abstract(article),
+        }
+
+    def sort_key(item: Tuple[str, Dict[str, Optional[str]]]) -> Tuple[int, str]:
         try:
             idx = CHANNEL_ORDER.index(item[0])
         except ValueError:
@@ -91,7 +140,9 @@ def _parse_programs(html: str) -> Dict[str, str]:
     return dict(sorted(mapping.items(), key=sort_key))
 
 
-async def get_schedules(session: aiohttp.ClientSession) -> Tuple[Dict[str, str], Dict[str, str]]:
+async def get_schedules(
+    session: aiohttp.ClientSession,
+) -> Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, Optional[str]]]]:
     """Download and parse schedules from ``sorrisi.com``."""
     html_now, html_prime = await asyncio.gather(
         _fetch_page(session, URL_NOW),
@@ -104,7 +155,9 @@ async def get_schedules(session: aiohttp.ClientSession) -> Tuple[Dict[str, str],
 # Coordinator
 # -----------------------------------------------------------------------------
 
-class SorrisiCoordinator(DataUpdateCoordinator[Tuple[Dict[str, str], Dict[str, str]]]):
+class SorrisiCoordinator(
+    DataUpdateCoordinator[Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, Optional[str]]]]]
+):
     """Refreshes both schedules together on a fixed interval.
 
     A single coordinator shared by both sensors, instead of a per-sensor cache,
@@ -120,5 +173,7 @@ class SorrisiCoordinator(DataUpdateCoordinator[Tuple[Dict[str, str], Dict[str, s
         )
         self._session = session
 
-    async def _async_update_data(self) -> Tuple[Dict[str, str], Dict[str, str]]:
+    async def _async_update_data(
+        self,
+    ) -> Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, Optional[str]]]]:
         return await get_schedules(self._session)

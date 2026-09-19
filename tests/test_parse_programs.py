@@ -1,4 +1,4 @@
-"""Tests for ``sensor._parse_programs`` against real sorrisi.com markup.
+"""Tests for ``coordinator._parse_programs`` against real sorrisi.com markup.
 
 The fixtures under ``fixtures/`` are full pages saved from sorrisi.com. This
 is the most fragile part of the integration: if sorrisi.com changes its
@@ -18,7 +18,7 @@ PRIMA_SERATA = (FIXTURES / "prima_serata.html").read_text(encoding="utf-8")
 def test_parses_known_channel_from_ora_in_onda():
     result = _parse_programs(ORA_IN_ONDA)
     assert "Rai 1" in result
-    assert result["Rai 1"]
+    assert result["Rai 1"]["titolo"]
 
 
 def test_parses_multiple_channels():
@@ -28,9 +28,9 @@ def test_parses_multiple_channels():
 
 def test_titles_are_non_empty_strings():
     result = _parse_programs(ORA_IN_ONDA)
-    for title in result.values():
-        assert isinstance(title, str)
-        assert title.strip()
+    for info in result.values():
+        assert isinstance(info["titolo"], str)
+        assert info["titolo"].strip()
 
 
 def test_orders_known_channels_by_channel_order():
@@ -48,7 +48,7 @@ def test_excludes_skip_channels():
 def test_parses_prima_serata_fixture():
     result = _parse_programs(PRIMA_SERATA)
     assert "Rai 1" in result
-    assert result["Rai 1"]
+    assert result["Rai 1"]["titolo"]
 
 
 def test_empty_html_returns_empty_mapping():
@@ -61,3 +61,24 @@ def test_malformed_html_does_not_raise():
 
 def test_html_without_expected_markup_returns_empty_mapping():
     assert _parse_programs("<html><body>Pagina di errore</body></html>") == {}
+
+
+def test_program_info_has_expected_keys():
+    result = _parse_programs(ORA_IN_ONDA)
+    info = result["Rai 1"]
+    assert set(info) == {
+        "titolo", "orario_inizio", "orario_fine", "genere", "locandina", "descrizione",
+    }
+
+
+def test_start_time_matches_hh_mm_format():
+    result = _parse_programs(ORA_IN_ONDA)
+    info = result["Rai 1"]
+    assert info["orario_inizio"] is None or len(info["orario_inizio"]) == 5
+
+
+def test_poster_url_is_absolute_when_present():
+    result = _parse_programs(ORA_IN_ONDA)
+    for info in result.values():
+        if info["locandina"] is not None:
+            assert info["locandina"].startswith("http")

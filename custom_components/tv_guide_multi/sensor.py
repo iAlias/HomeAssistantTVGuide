@@ -7,7 +7,7 @@ This module exposes two sensors fed by ``coordinator.SorrisiCoordinator``:
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -42,6 +42,11 @@ class _SorrisiBase(CoordinatorEntity[SorrisiCoordinator], SensorEntity):
         super().__init__(coordinator)
         self._base_name = base_name
 
+    @staticmethod
+    def _first_title(cache: Dict[str, Dict[str, Optional[str]]]) -> str:
+        first = next(iter(cache.values()), None)
+        return first["titolo"] if first else "Nessun dato"
+
 
 class SorrisiNowSensor(_SorrisiBase):
     """Current programmes sensor."""
@@ -56,7 +61,7 @@ class SorrisiNowSensor(_SorrisiBase):
     @property
     def native_value(self) -> str:
         cache_now, _ = self.coordinator.data
-        return next(iter(cache_now.values()), "Nessun dato")
+        return self._first_title(cache_now)
 
     @property
     def extra_state_attributes(self) -> Dict[str, object]:
@@ -80,7 +85,7 @@ class SorrisiPrimeSensor(_SorrisiBase):
     @property
     def native_value(self) -> str:
         _, cache_prime = self.coordinator.data
-        return next(iter(cache_prime.values()), "Nessun dato")
+        return self._first_title(cache_prime)
 
     @property
     def extra_state_attributes(self) -> Dict[str, object]:
