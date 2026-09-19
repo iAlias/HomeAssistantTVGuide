@@ -8,7 +8,7 @@ markup, these tests catch it before the sensors silently start returning
 
 from pathlib import Path
 
-from sensor import CHANNEL_ORDER, SKIP_CHANNELS, _parse_programs
+from coordinator import CHANNEL_ORDER, SKIP_CHANNELS, _parse_programs
 
 FIXTURES = Path(__file__).parent / "fixtures"
 ORA_IN_ONDA = (FIXTURES / "ora_in_onda.html").read_text(encoding="utf-8")

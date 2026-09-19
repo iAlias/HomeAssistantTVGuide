@@ -1,0 +1,16 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Guida TV Multi-Source",
+        "description": "Palinsesto della TV italiana da TV Sorrisi e Canzoni. Puoi installare una sola istanza di questa integrazione.",
+        "data": {
+          "name": "Nome"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "L'integrazione è già configurata."
+    }
+  }
+}

@@ -32,16 +32,17 @@ non devi toccare niente.
 1. HACS → Integrazioni → menù in alto a destra → **Repository personalizzati**
 2. Incolla `https://github.com/iAlias/HomeAssistantTVGuide`, categoria **Integration**
 3. Installa e riavvia Home Assistant
+4. **Impostazioni → Dispositivi e servizi → Aggiungi integrazione** → cerca **TV Guide Multi-Source**
+5. Conferma il nome (o personalizzalo): è il prefisso dei due sensori
 
-Poi aggiungi i sensori in `configuration.yaml`:
+Al termine troverai `sensor.guida_tv_ora_in_onda` e `sensor.guida_tv_prima_serata` (il nome esatto
+dipende dal nome scelto in fase di configurazione). Si può installare una sola istanza
+dell'integrazione: interroga un'unica fonte pubblica condivisa da tutti i canali.
 
-```yaml
-sensor:
-  - platform: tv_guide_multi
-    name: "Guida TV"      # opzionale, è il prefisso dei due sensori
-```
-
-Riavvia di nuovo: troverai `sensor.guida_tv_ora_in_onda` e `sensor.guida_tv_prima_serata`.
+> **Aggiornamento da una versione precedente alla 5.0.0?** L'integrazione non si configura più via
+> `configuration.yaml`. Rimuovi il blocco `sensor: - platform: tv_guide_multi` e aggiungi
+> l'integrazione dalla UI come sopra; le entità mantengono lo stesso `unique_id`, quindi cronologia
+> e automazioni restano intatte.
 
 ### 2. La card
 
@@ -100,6 +101,19 @@ style: |
 - **Solo canali italiani.** L'ordinamento segue la numerazione LCN nazionale.
 - **Rispetta la fonte.** L'integrazione tiene in memoria i palinsesti invece di riscaricarli a ogni
   controllo: se ne modifichi il funzionamento, evita di trasformare il sito in un bersaglio.
+
+---
+
+## Sviluppo
+
+```bash
+pip install -r requirements_test.txt
+pytest -q
+```
+
+I test in `tests/` coprono `_parse_programs` contro pagine HTML reali salvate come fixture
+(`tests/fixtures/`) — è il punto più fragile dell'integrazione, perché basta che sorrisi.com cambi
+il markup perché i sensori smettano di trovare i programmi.
 
 ---
 
